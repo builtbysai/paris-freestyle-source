@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- (c) 2026 Max Vedel / Spellbound Labs. All rights reserved. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paris Freestyle — brush-stroke juggling lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Inter:wght@400;500;600&family=Caveat+Brush&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0d0b18; --panel: #15122a; --line: rgba(255, 255, 255, 0.1); --ink: #f3f0ff; --dim: #a59fc4; --volt: #c8ff2e; --hot: #ff2f7a; --paper: #ece4d9; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; overflow: hidden; }
+  button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--ink); }
+  select#fmt { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 8px 10px; cursor: pointer; }
+  button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+  button.main { background: var(--volt); border-color: var(--volt); color: #12101f; font-weight: 600; }
+  button[aria-pressed="true"] { background: var(--ink); color: #12101f; border-color: var(--ink); }
+  #app { display: grid; height: 100%; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  body.panel-open #app { grid-template-columns: minmax(0, 1fr) 324px; }
+  #bar { grid-column: 1; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
+  .brand { display: flex; flex-direction: column; min-width: 0; }
+  .brand b { font: 800 15px/1.1 Unbounded, Inter, sans-serif; letter-spacing: 0.02em; }
+  .brand b i { font-style: normal; color: var(--volt); }
+  #placeName { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #chips { display: flex; gap: 6px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+  #chips button { padding: 6px 11px; font-size: 12px; }
+  #fps { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+  #stage { grid-column: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 0; background: radial-gradient(120% 90% at 50% 40%, #1d1838 0%, var(--bg) 70%); }
+  #frame { position: relative; background: var(--paper); box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55); border-radius: 4px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #safe { position: absolute; inset: 0; pointer-events: none; }
+  #safe::before, #safe::after { content: ''; position: absolute; left: 0; right: 0; background: rgba(255, 47, 122, 0.16); border: 0 dashed rgba(255, 47, 122, 0.8); }
+  #safe::before { top: 0; height: 11%; border-bottom-width: 1px; }
+  #safe::after { bottom: 0; height: 18%; border-top-width: 1px; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #4b4368; font-weight: 500; }
+  #loading[hidden] { display: none; }
+  #transport { grid-column: 1; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); min-width: 0; }
+  #line { position: relative; flex: 1; height: 30px; min-width: 60px; border-radius: 8px; overflow: hidden; cursor: pointer; background: #1c1836; }
+  #bands { display: flex; height: 100%; }
+  #bands span { flex: 1; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; border-right: 2px solid var(--bg); }
+  #head { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); pointer-events: none; }
+  #time { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
+  #panel { grid-column: 2; grid-row: 1 / 4; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; display: none; }
+  body.panel-open #panel { display: block; }
+  #gui .lil-gui { --background-color: var(--panel); --title-background-color: #1e1a3a; --widget-color: #2a2550; --hover-color: #3a3470; --focus-color: #4a4390; --number-color: var(--volt); --string-color: var(--volt); --text-color: var(--ink); --font-family: Inter, system-ui, sans-serif; --font-size: 12px; --input-font-size: 12px; --widget-height: 24px; --padding: 8px; --spacing: 6px; --name-width: 48%; width: 100% !important; }
+  #gui .lil-gui.root > .title { display: none; }
+  .modal { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 6, 18, 0.78); }
+  .modal[hidden] { display: none; }
+  .card { width: min(440px, 100%); max-height: 100%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h2 { margin: 0 0 10px; font: 800 14px Unbounded, Inter, sans-serif; }
+  .card p { margin: 0 0 12px; color: var(--dim); }
+  .track { height: 8px; border-radius: 99px; background: #2a2550; overflow: hidden; margin-bottom: 14px; }
+  #exBar { height: 100%; width: 0; background: var(--volt); }
+  #exVideo { display: block; width: 100%; max-height: 46vh; background: #000; border-radius: 8px; margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  textarea { width: 100%; height: 150px; background: #0d0b18; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace; margin-bottom: 12px; }
+  #toast { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 40; background: var(--ink); color: #12101f; padding: 8px 14px; border-radius: 999px; font-weight: 500; }
+  @media (max-width: 899px) {
+    body.panel-open #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 46vh); }
+    #panel { grid-column: 1; grid-row: 4; border-left: 0; border-top: 1px solid var(--line); }
+    #chips, #fps, #restart { display: none; }
+    #fmt { margin-left: auto; }
+    #sound { padding: 8px 10px; }
+  }
+  @media (max-width: 479px) {
+    #time { display: none; }
+    #bar { padding: 8px 12px; } #transport { padding: 8px 12px; gap: 8px; } #stage { padding: 8px; }
+    #bands span { font-size: 0; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <div class="brand"><b>PARIS <i>FREESTYLE</i></b><span id="placeName">&nbsp;</span></div>
+    <div id="chips" aria-label="Jump to a street"></div>
+    <span id="fps"></span>
+    <select id="fmt" aria-label="Format"><option value="9:16">9:16</option><option value="4:5">4:5</option><option value="1:1">1:1</option><option value="16:9">16:9</option></select>
+    <button id="panelTog" aria-expanded="false" aria-controls="panel">Settings</button>
+  </header>
+  <main id="stage">
+    <div id="frame"><canvas id="view"></canvas><div id="safe" hidden></div><div id="loading">Composing the streets…</div></div>
+  </main>
+  <footer id="transport">
+    <button id="play" aria-pressed="true">Pause</button>
+    <button id="restart">Restart</button>
+    <button id="sound" aria-pressed="true">Sound on</button>
+    <div id="line" title="Click to jump"><div id="bands"></div><div id="head"></div></div>
+    <span id="time">0:00.0</span>
+    <button id="export" class="main">Export MP4</button>
+  </footer>
+  <aside id="panel"><div id="gui"></div></aside>
+</div>
+
+<div id="exBox" class="modal" hidden><div class="card">
+  <h2>Export MP4</h2>
+  <p id="exMsg">Preparing…</p>
+  <div id="exRun"><div class="track"><div id="exBar"></div></div><div class="row"><button id="exCancel">Cancel</button></div></div>
+  <div id="exDone" hidden><video id="exVideo" controls loop playsinline muted></video><div class="row"><button id="exClose">Close</button><button id="exSave" class="main">Save video</button></div></div>
+</div></div>
+<div id="jsonBox" class="modal" hidden><div class="card">
+  <h2>Settings as JSON</h2>
+  <textarea id="json" spellcheck="false" aria-label="Settings JSON"></textarea>
+  <div class="row"><button id="jsonClose">Close</button><button id="jsonApply" class="main">Load these settings</button></div>
+</div></div>
+<div id="toast" role="status" hidden></div>
+
+<script src="vendor/three.min.f34446bf87.js"></script>
+<script src="vendor/lil-gui.umd.min.48e8e0b7ae.js"></script>
+<script src="vendor/mp4-muxer.min.75fd5ba4a3.js"></script>
+<script src="assets/character.19adee840c.js"></script>
+<script src="app.c290dfa8de.js"></script>
+</body>
+</html>
